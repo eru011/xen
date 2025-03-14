@@ -81,22 +81,19 @@ async def search_youtube(request: Request, q: str = Query(...)):
 # Add after YOUTUBE_API_KEY initialization
 def get_cookies():
     # Example cookies that might help bypass restrictions
-    cookies = [
-        {
-            "name": "CONSENT",
-            "value": "YES+",
-            "domain": ".youtube.com",
-        },
-        {
-            "name": "VISITOR_INFO1_LIVE",
-            "value": "random_value",
-            "domain": ".youtube.com",
-        }
+    cookie_data = [
+        f".youtube.com\tTRUE\t/\tFALSE\t2147483647\tCONSENT\tYES+",
+        f".youtube.com\tTRUE\t/\tFALSE\t2147483647\tVISITOR_INFO1_LIVE\trandom_value"
     ]
     
-    # Create temporary cookie file
-    with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.json') as f:
-        json.dump(cookies, f)
+    # Create temporary cookie file in Netscape format
+    with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt') as f:
+        f.write("# Netscape HTTP Cookie File\n")  # Required header
+        f.write("# https://curl.haxx.se/rfc/cookie_spec.html\n")
+        f.write("# This is a generated file!  Do not edit.\n\n")
+        
+        for cookie in cookie_data:
+            f.write(cookie + "\n")
         return f.name
 
 @app.post("/stream/{video_id}")

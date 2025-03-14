@@ -7,6 +7,8 @@ from pydantic import BaseModel
 import requests
 import os
 from dotenv import load_dotenv
+import tempfile
+import json
 
 load_dotenv()
 YOUTUBE_API_KEY = os.getenv('YOUTUBE_API_KEY')
@@ -76,16 +78,39 @@ async def search_youtube(request: Request, q: str = Query(...)):
             "error": "Search failed"
         })
 
+# Add after YOUTUBE_API_KEY initialization
+def get_cookies():
+    # Example cookies that might help bypass restrictions
+    cookies = [
+        {
+            "name": "CONSENT",
+            "value": "YES+",
+            "domain": ".youtube.com",
+        },
+        {
+            "name": "VISITOR_INFO1_LIVE",
+            "value": "random_value",
+            "domain": ".youtube.com",
+        }
+    ]
+    
+    # Create temporary cookie file
+    with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.json') as f:
+        json.dump(cookies, f)
+        return f.name
+
 @app.post("/stream/{video_id}")
 async def stream_audio(request: Request, video_id: str):
     try:
         video_url = f"https://www.youtube.com/watch?v={video_id}"
         
+        # Add cookies to ydl_opts
         ydl_opts = {
             'format': 'bestaudio[ext=m4a]/bestaudio[ext=mp3]/bestaudio',
             'quiet': True,
             'no_warnings': True,
-            'extract_audio': True
+            'extract_audio': True,
+            'cookiefile': get_cookies()  # Add cookie file
         }
         
         with ytdl.YoutubeDL(ydl_opts) as ydl:
@@ -129,6 +154,7 @@ async def download_audio(video_id: str):
             'format': 'bestaudio/best',
             'quiet': True,
             'extract_audio': True,
+            'cookiefile': get_cookies(),  # Add cookie file
             'postprocessors': [{
                 'key': 'FFmpegExtractAudio',
                 'preferredcodec': 'mp3',

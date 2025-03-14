@@ -11,9 +11,12 @@ from dotenv import load_dotenv
 load_dotenv()
 YOUTUBE_API_KEY = os.getenv('YOUTUBE_API_KEY')
 
+# Update the FastAPI app initialization
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
-app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# Remove the static files mounting since Vercel handles it differently
+# app.mount("/static", StaticFiles(directory="static"), name="static")
 
 class VideoRequest(BaseModel):
     video_id: str
@@ -160,6 +163,7 @@ async def download_audio(video_id: str):
         print(f"Download failed: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+# Remove or modify the uvicorn run block since Vercel handles this
+# if __name__ == "__main__":
+#     import uvicorn
+#     uvicorn.run(app, host="0.0.0.0", port=8000)

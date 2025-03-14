@@ -1,6 +1,14 @@
-# Xen Music Backend
+# Xen Music
 
-A FastAPI backend for the Xen Music streaming application.
+A FastAPI-based music streaming application that allows users to search and play music from YouTube.
+
+## Features
+
+- Search YouTube videos
+- Stream audio
+- Download audio as MP3
+- Draggable player interface
+- Responsive design
 
 ## Setup
 

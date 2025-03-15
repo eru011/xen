@@ -182,30 +182,28 @@ async def download_audio(video_id: str):
                 'sec-ch-ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
                 'sec-ch-ua-mobile': '?0',
                 'sec-ch-ua-platform': '"Windows"',
-            },
-            'socket_timeout': 30,
-            'extractor_retries': 3,
-            'age_limit': None,
-            'geo_bypass': True,
-            'geo_bypass_country': 'US'
+            }
         }
         
+        info = None
         with ytdl.YoutubeDL(ydl_opts) as ydl:
             try:
                 # First attempt with default options
                 info = ydl.extract_info(video_url, download=False)
-            except Exception as e:
-                if "Sign in to confirm you're not a bot" in str(e):
+            except Exception as first_error:
+                if "Sign in to confirm you're not a bot" in str(first_error):
                     # Second attempt with modified options
                     ydl_opts.update({
-                        'format': 'bestaudio[ext=m4a]/bestaudio',  # Try different format
-                        'geo_bypass_ip_block': '1.0.0.1',  # Add IP block bypass
+                        'format': 'bestaudio[ext=m4a]/bestaudio',
+                        'geo_bypass_ip_block': '1.0.0.1',
                     })
                     info = ydl.extract_info(video_url, download=False)
-            
-            if not info:
-                raise ValueError("Could not extract video information")
-            
+                else:
+                    raise first_error
+        
+        if not info:
+            raise ValueError("Could not extract video information")
+        
             # Get the best audio format URL
             formats = info.get('formats', [])
             audio_formats = [f for f in formats if f.get('acodec') != 'none' and f.get('vcodec') == 'none']

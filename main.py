@@ -162,22 +162,37 @@ async def download_audio(video_id: str):
                 'key': 'FFmpegExtractAudio',
                 'preferredcodec': 'mp3',
             }],
-            # Add these options
             'nocheckcertificate': True,
-            'ignoreerrors': True,
+            'ignoreerrors': False,  # Changed to False to catch errors
             'no_warnings': True,
-            # Add custom headers
             'http_headers': {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                'Accept-Language': 'en-us,en;q=0.5',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.5',
                 'Sec-Fetch-Mode': 'navigate',
+                'Sec-Fetch-Dest': 'document',
+                'Sec-Fetch-Site': 'none',
+                'Sec-Fetch-User': '?1',
             }
         }
         
         with ytdl.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(video_url, download=False)
-            url = info['url']
+            if not info:
+                raise ValueError("Could not extract video information")
+            
+            # Get the best audio format URL
+            formats = info.get('formats', [])
+            audio_formats = [f for f in formats if f.get('acodec') != 'none' and f.get('vcodec') == 'none']
+            
+            if not audio_formats:
+                raise ValueError("No audio formats found")
+                
+            best_audio = max(audio_formats, key=lambda x: float(x.get('abr', 0) or 0))
+            url = best_audio.get('url')
+            
+            if not url:
+                raise ValueError("Could not get audio URL")
             
             # Handle Unicode characters in title
             from html import unescape
@@ -186,11 +201,13 @@ async def download_audio(video_id: str):
             
             # Create a safe filename
             import re
-            safe_title = re.sub(r'[^\x00-\x7F]+', '', title)  # Remove non-ASCII
-            safe_title = re.sub(r'[<>:"/\\|?*]', '', safe_title)  # Remove invalid filename chars
-            safe_title = safe_title.strip() or 'audio'  # Fallback if empty
+            safe_title = re.sub(r'[^\x00-\x7F]+', '', title)
+            safe_title = re.sub(r'[<>:"/\\|?*]', '', safe_title)
+            safe_title = safe_title.strip() or 'audio'
             
             response = requests.get(url, stream=True)
+            response.raise_for_status()  # Check if the request was successful
+            
             return StreamingResponse(
                 response.iter_content(chunk_size=8192),
                 media_type="audio/mpeg",
@@ -201,7 +218,7 @@ async def download_audio(video_id: str):
 
     except Exception as e:
         print(f"Download failed: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"Download failed: {str(e)}")
 
 # Remove or modify the uvicorn run block since Vercel handles this
 # if __name__ == "__main__":

@@ -150,94 +150,50 @@ async def stream_audio(request: Request, video_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/download/{video_id}")
-async def download_audio(video_id: str):
+async def get_audio_url(video_id: str):
     try:
         video_url = f"https://www.youtube.com/watch?v={video_id}"
         
         ydl_opts = {
-            'format': 'bestaudio/best',
+            'format': 'bestaudio[ext=m4a]/bestaudio',
             'quiet': True,
+            'no_warnings': True,
             'extract_audio': True,
             'cookiefile': get_cookies(),
-            'postprocessors': [{
-                'key': 'FFmpegExtractAudio',
-                'preferredcodec': 'mp3',
-            }],
             'nocheckcertificate': True,
-            'ignoreerrors': False,
-            'no_warnings': True,
             'http_headers': {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-                'Accept-Language': 'en-US,en;q=0.9',
-                'Accept-Encoding': 'gzip, deflate, br',
-                'Referer': 'https://www.youtube.com/',
-                'DNT': '1',
-                'Connection': 'keep-alive',
-                'Upgrade-Insecure-Requests': '1',
-                'Sec-Fetch-Dest': 'document',
-                'Sec-Fetch-Mode': 'navigate',
-                'Sec-Fetch-Site': 'same-origin',
-                'Sec-Fetch-User': '?1',
-                'sec-ch-ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
-                'sec-ch-ua-mobile': '?0',
-                'sec-ch-ua-platform': '"Windows"',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.5',
             }
         }
         
-        info = None
         with ytdl.YoutubeDL(ydl_opts) as ydl:
-            try:
-                # First attempt with default options
-                info = ydl.extract_info(video_url, download=False)
-            except Exception as first_error:
-                if "Sign in to confirm you're not a bot" in str(first_error):
-                    # Second attempt with modified options
-                    ydl_opts.update({
-                        'format': 'bestaudio[ext=m4a]/bestaudio',
-                        'geo_bypass_ip_block': '1.0.0.1',
-                    })
-                    info = ydl.extract_info(video_url, download=False)
-                else:
-                    raise first_error
-        
-        if not info:
-            raise ValueError("Could not extract video information")
-        
-            # Get the best audio format URL
+            info = ydl.extract_info(video_url, download=False)
+            
+            if not info:
+                raise ValueError("Could not extract video information")
+            
             formats = info.get('formats', [])
             audio_formats = [f for f in formats if f.get('acodec') != 'none' and f.get('vcodec') == 'none']
             
             if not audio_formats:
                 raise ValueError("No audio formats found")
-                
+            
             best_audio = max(audio_formats, key=lambda x: float(x.get('abr', 0) or 0))
             url = best_audio.get('url')
             
             if not url:
                 raise ValueError("Could not get audio URL")
             
-            # Handle Unicode characters in title
-            from html import unescape
-            from urllib.parse import unquote
-            title = unquote(unescape(info.get('title', 'audio')))
+            title = info.get('title', 'audio')
+            safe_title = "".join(c for c in title if c.isalnum() or c in (' -_')).strip()
             
-            # Create a safe filename
-            import re
-            safe_title = re.sub(r'[^\x00-\x7F]+', '', title)
-            safe_title = re.sub(r'[<>:"/\\|?*]', '', safe_title)
-            safe_title = safe_title.strip() or 'audio'
-            
-            response = requests.get(url, stream=True)
-            response.raise_for_status()  # Check if the request was successful
-            
-            return StreamingResponse(
-                response.iter_content(chunk_size=8192),
-                media_type="audio/mpeg",
-                headers={
-                    "Content-Disposition": f'attachment; filename="{safe_title}.mp3"'.encode('ascii', 'ignore').decode()
-                }
-            )
+            return {
+                "url": url,
+                "title": safe_title or 'audio',
+                "content_type": best_audio.get('ext', 'mp3')
+            }
 
     except Exception as e:
         print(f"Download failed: {str(e)}")

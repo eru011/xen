@@ -9,6 +9,7 @@ import os
 from dotenv import load_dotenv
 import tempfile
 import json
+import time
 
 load_dotenv()
 YOUTUBE_API_KEY = os.getenv('YOUTUBE_API_KEY')
@@ -80,14 +81,14 @@ async def search_youtube(request: Request, q: str = Query(...)):
 
 # Add after YOUTUBE_API_KEY initialization
 def get_cookies():
-    # Enhanced cookies to help bypass restrictions
+    timestamp = int(time.time())
     cookie_data = [
-        f".youtube.com\tTRUE\t/\tFALSE\t2147483647\tCONSENT\tYES+cb.20210328-17-p0.en+FX+{random.randint(100, 999)}",
-        f".youtube.com\tTRUE\t/\tFALSE\t2147483647\tVISITOR_INFO1_LIVE\t{random.randint(100000, 999999)}",
-        f".youtube.com\tTRUE\t/\tFALSE\t2147483647\tLOGIN_INFO\tdummy",
-        f".youtube.com\tTRUE\t/\tFALSE\t2147483647\tPREF\tf1=50000000&hl=en",
-        f".youtube.com\tTRUE\t/\tFALSE\t2147483647\tSID\tdummy",
-        f".youtube.com\tTRUE\t/\tFALSE\t2147483647\t__Secure-3PSID\tdummy"
+        f".youtube.com\tTRUE\t/\tFALSE\t{timestamp + 63072000}\tCONSENT\tPENDING+{random.randint(100, 999)}",
+        f".youtube.com\tTRUE\t/\tFALSE\t{timestamp + 63072000}\tVISITOR_INFO1_LIVE\t{random.randint(100000000, 999999999)}",
+        f".youtube.com\tTRUE\t/\tFALSE\t{timestamp + 63072000}\tPREF\tf6=400&hl=en&f5=30000",
+        f".youtube.com\tTRUE\t/\tFALSE\t{timestamp + 63072000}\tYSC\t{random.randint(100000000, 999999999)}",
+        f".youtube.com\tTRUE\t/\tFALSE\t{timestamp + 63072000}\tWIDE\t1",
+        f".youtube.com\tTRUE\t/\tFALSE\t{timestamp + 63072000}\tLOCATION\t?1"
     ]
     
     with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt') as f:
@@ -163,21 +164,45 @@ async def download_audio(video_id: str):
                 'preferredcodec': 'mp3',
             }],
             'nocheckcertificate': True,
-            'ignoreerrors': False,  # Changed to False to catch errors
+            'ignoreerrors': False,
             'no_warnings': True,
             'http_headers': {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-                'Accept-Language': 'en-US,en;q=0.5',
-                'Sec-Fetch-Mode': 'navigate',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Accept-Encoding': 'gzip, deflate, br',
+                'Referer': 'https://www.youtube.com/',
+                'DNT': '1',
+                'Connection': 'keep-alive',
+                'Upgrade-Insecure-Requests': '1',
                 'Sec-Fetch-Dest': 'document',
-                'Sec-Fetch-Site': 'none',
+                'Sec-Fetch-Mode': 'navigate',
+                'Sec-Fetch-Site': 'same-origin',
                 'Sec-Fetch-User': '?1',
-            }
+                'sec-ch-ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
+                'sec-ch-ua-mobile': '?0',
+                'sec-ch-ua-platform': '"Windows"',
+            },
+            'socket_timeout': 30,
+            'extractor_retries': 3,
+            'age_limit': None,
+            'geo_bypass': True,
+            'geo_bypass_country': 'US'
         }
         
         with ytdl.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(video_url, download=False)
+            try:
+                # First attempt with default options
+                info = ydl.extract_info(video_url, download=False)
+            except Exception as e:
+                if "Sign in to confirm you're not a bot" in str(e):
+                    # Second attempt with modified options
+                    ydl_opts.update({
+                        'format': 'bestaudio[ext=m4a]/bestaudio',  # Try different format
+                        'geo_bypass_ip_block': '1.0.0.1',  # Add IP block bypass
+                    })
+                    info = ydl.extract_info(video_url, download=False)
+            
             if not info:
                 raise ValueError("Could not extract video information")
             

@@ -80,21 +80,27 @@ async def search_youtube(request: Request, q: str = Query(...)):
 
 # Add after YOUTUBE_API_KEY initialization
 def get_cookies():
-    # Example cookies that might help bypass restrictions
+    # Enhanced cookies to help bypass restrictions
     cookie_data = [
-        f".youtube.com\tTRUE\t/\tFALSE\t2147483647\tCONSENT\tYES+",
-        f".youtube.com\tTRUE\t/\tFALSE\t2147483647\tVISITOR_INFO1_LIVE\trandom_value"
+        f".youtube.com\tTRUE\t/\tFALSE\t2147483647\tCONSENT\tYES+cb.20210328-17-p0.en+FX+{random.randint(100, 999)}",
+        f".youtube.com\tTRUE\t/\tFALSE\t2147483647\tVISITOR_INFO1_LIVE\t{random.randint(100000, 999999)}",
+        f".youtube.com\tTRUE\t/\tFALSE\t2147483647\tLOGIN_INFO\tdummy",
+        f".youtube.com\tTRUE\t/\tFALSE\t2147483647\tPREF\tf1=50000000&hl=en",
+        f".youtube.com\tTRUE\t/\tFALSE\t2147483647\tSID\tdummy",
+        f".youtube.com\tTRUE\t/\tFALSE\t2147483647\t__Secure-3PSID\tdummy"
     ]
     
-    # Create temporary cookie file in Netscape format
     with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt') as f:
-        f.write("# Netscape HTTP Cookie File\n")  # Required header
+        f.write("# Netscape HTTP Cookie File\n")
         f.write("# https://curl.haxx.se/rfc/cookie_spec.html\n")
         f.write("# This is a generated file!  Do not edit.\n\n")
         
         for cookie in cookie_data:
             f.write(cookie + "\n")
         return f.name
+
+# Add this at the top of the file with other imports
+import random
 
 @app.post("/stream/{video_id}")
 async def stream_audio(request: Request, video_id: str):
@@ -151,11 +157,22 @@ async def download_audio(video_id: str):
             'format': 'bestaudio/best',
             'quiet': True,
             'extract_audio': True,
-            'cookiefile': get_cookies(),  # Add cookie file
+            'cookiefile': get_cookies(),
             'postprocessors': [{
                 'key': 'FFmpegExtractAudio',
                 'preferredcodec': 'mp3',
-            }]
+            }],
+            # Add these options
+            'nocheckcertificate': True,
+            'ignoreerrors': True,
+            'no_warnings': True,
+            # Add custom headers
+            'http_headers': {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                'Accept-Language': 'en-us,en;q=0.5',
+                'Sec-Fetch-Mode': 'navigate',
+            }
         }
         
         with ytdl.YoutubeDL(ydl_opts) as ydl:

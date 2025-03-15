@@ -1,3 +1,23 @@
+<!-- Add this at the top of the file, before the for loop -->
+<script>
+async function downloadAudio(videoId) {
+    try {
+        const response = await fetch(`/download/${videoId}`);
+        const data = await response.json();
+        
+        const a = document.createElement('a');
+        a.href = data.url;
+        a.download = `${data.title}.${data.content_type}`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    } catch (error) {
+        console.error('Download failed:', error);
+        alert('Failed to download audio');
+    }
+}
+</script>
+
 {% for result in results %}
 <div class="bg-[#282828] rounded-lg p-4 hover:bg-[#383838] transition-colors">
     <div class="flex items-center gap-4">
@@ -21,25 +41,6 @@
                 >
                     Download
                 </button>
-                
-                <script>
-                async function downloadAudio(videoId) {
-                    try {
-                        const response = await fetch(`/download/${videoId}`);
-                        const data = await response.json();
-                        
-                        const a = document.createElement('a');
-                        a.href = data.url;
-                        a.download = `${data.title}.${data.content_type}`;
-                        document.body.appendChild(a);
-                        a.click();
-                        document.body.removeChild(a);
-                    } catch (error) {
-                        console.error('Download failed:', error);
-                        alert('Failed to download audio');
-                    }
-                }
-                </script>
             </div>
         </div>
     </div>

@@ -108,13 +108,12 @@ async def stream_audio(request: Request, video_id: str):
     try:
         video_url = f"https://www.youtube.com/watch?v={video_id}"
         
-        # Add cookies to ydl_opts
         ydl_opts = {
             'format': 'bestaudio[ext=m4a]/bestaudio[ext=mp3]/bestaudio',
             'quiet': True,
             'no_warnings': True,
             'extract_audio': True,
-            'cookiefile': get_cookies()  # Add cookie file
+            'cookiefile': get_cookies()
         }
         
         with ytdl.YoutubeDL(ydl_opts) as ydl:
@@ -131,7 +130,6 @@ async def stream_audio(request: Request, video_id: str):
             
         best_audio = max(audio_formats, key=lambda x: float(x.get('abr', 0) or 0))
         
-        # Get the direct audio URL and other metadata
         audio_url = best_audio['url']
         title = info.get('title', 'Unknown Title')
         thumbnail = info.get('thumbnail', '')
@@ -142,7 +140,8 @@ async def stream_audio(request: Request, video_id: str):
             "title": title,
             "thumbnail": thumbnail
         }, headers={
-            'HX-Trigger': 'playerLoaded'
+            'HX-Trigger': 'playerLoaded',
+            'Access-Control-Allow-Origin': '*'
         })
 
     except Exception as e:

@@ -31,48 +31,94 @@
 </div>
 
 <script>
+    // Initialize player and handle elements
     const player = document.getElementById('draggable-player');
     const handle = document.getElementById('player-handle');
+    const audioPlayer = document.getElementById('audio-player');
+    
+    // Dragging state variables
     let isDragging = false;
-    let currentX;
-    let currentY;
-    let initialX;
-    let initialY;
-    let xOffset = 0;
-    let yOffset = 0;
+    let startX = 0;
+    let startY = 0;
+    let offsetX = 0;
+    let offsetY = 0;
 
-    handle.addEventListener('mousedown', dragStart);
+    // Initialize player position from localStorage or default
+    const savedPosition = JSON.parse(localStorage.getItem('playerPosition') || '{"x": 0, "y": 0}');
+    setPosition(savedPosition.x, savedPosition.y);
+
+    // Event listeners for dragging
+    handle.addEventListener('mousedown', startDragging);
     document.addEventListener('mousemove', drag);
-    document.addEventListener('mouseup', dragEnd);
+    document.addEventListener('mouseup', stopDragging);
+    
+    // Touch support
+    handle.addEventListener('touchstart', handleTouchStart);
+    document.addEventListener('touchmove', handleTouchMove);
+    document.addEventListener('touchend', handleTouchEnd);
 
-    function dragStart(e) {
-        initialX = e.clientX - xOffset;
-        initialY = e.clientY - yOffset;
-
-        if (e.target.closest('#player-handle')) {
-            isDragging = true;
-        }
+    function startDragging(e) {
+        if (!e.target.closest('#player-handle')) return;
+        
+        isDragging = true;
+        startX = e.clientX - offsetX;
+        startY = e.clientY - offsetY;
+        player.style.cursor = 'grabbing';
     }
 
     function drag(e) {
-        if (isDragging) {
-            e.preventDefault();
-            currentX = e.clientX - initialX;
-            currentY = e.clientY - initialY;
-            xOffset = currentX;
-            yOffset = currentY;
-
-            setTranslate(currentX, currentY, player);
-        }
+        if (!isDragging) return;
+        
+        e.preventDefault();
+        offsetX = e.clientX - startX;
+        offsetY = e.clientY - startY;
+        
+        // Keep player within viewport bounds
+        const rect = player.getBoundingClientRect();
+        const maxX = window.innerWidth - rect.width;
+        const maxY = window.innerHeight - rect.height;
+        
+        offsetX = Math.min(Math.max(0, offsetX), maxX);
+        offsetY = Math.min(Math.max(0, offsetY), maxY);
+        
+        setPosition(offsetX, offsetY);
     }
 
-    function setTranslate(xPos, yPos, el) {
-        el.style.transform = `translate3d(${xPos}px, ${yPos}px, 0)`;
-    }
-
-    function dragEnd() {
+    function stopDragging() {
         isDragging = false;
+        player.style.cursor = 'grab';
+        // Save position
+        localStorage.setItem('playerPosition', JSON.stringify({ x: offsetX, y: offsetY }));
     }
 
-    document.getElementById('audio-player').play().catch(e => console.error('Playback failed:', e));
+    function setPosition(x, y) {
+        player.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+    }
+
+    // Touch event handlers
+    function handleTouchStart(e) {
+        const touch = e.touches[0];
+        startDragging({ clientX: touch.clientX, clientY: touch.clientY, target: e.target });
+    }
+
+    function handleTouchMove(e) {
+        if (!isDragging) return;
+        const touch = e.touches[0];
+        drag({ preventDefault: () => e.preventDefault(), clientX: touch.clientX, clientY: touch.clientY });
+    }
+
+    function handleTouchEnd() {
+        stopDragging();
+    }
+
+    // Initialize audio player
+    if (audioPlayer) {
+        audioPlayer.volume = parseFloat(localStorage.getItem('playerVolume') || '1.0');
+        
+        audioPlayer.addEventListener('volumechange', () => {
+            localStorage.setItem('playerVolume', audioPlayer.volume);
+        });
+        
+        audioPlayer.play().catch(e => console.warn('Autoplay prevented:', e));
+    }
 </script>

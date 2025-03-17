@@ -197,26 +197,37 @@ async def get_audio_url(video_id: str):
 async def extract_video_info(video_id: str):
     video_url = f"https://www.youtube.com/watch?v={video_id}"
     ydl_opts = {
-        'format': 'bestaudio/best',
+        'format': 'bestaudio',
         'quiet': True,
         'no_warnings': True,
-        'extract_audio': True,
-        'cookiefile': get_cookies(),
-        'nocheckcertificate': True,
-        'geo_bypass': True,
-        'geo_bypass_country': 'US',
+        'extract_flat': True,
+        'dump_single_json': True,
+        'force_generic_extractor': False,
+        'youtube_include_dash_manifest': False,
+        'extractor_retries': 3,
         'http_headers': {
             'User-Agent': get_random_user_agent(),
+            'Accept-Language': 'en-US,en;q=0.9',
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.5',
-            'Accept-Encoding': 'gzip, deflate',
-            'DNT': '1',
+            'Origin': 'https://www.youtube.com',
+            'Referer': 'https://www.youtube.com/',
         }
     }
     
     try:
         with ytdl.YoutubeDL(ydl_opts) as ydl:
-            return ydl.extract_info(video_url, download=False)
+            # First try with basic extraction
+            try:
+                info = ydl.extract_info(video_url, download=False)
+                if info:
+                    return info
+            except:
+                # If basic extraction fails, try with alternative options
+                ydl_opts.update({
+                    'force_generic_extractor': True,
+                    'extract_flat': False,
+                })
+                return ydl.extract_info(video_url, download=False)
     except Exception as e:
         print(f"YT-DLP extraction failed: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))

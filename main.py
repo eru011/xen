@@ -84,11 +84,26 @@ async def search_youtube(request: Request, q: str = Query(...)):
 # Add after YOUTUBE_API_KEY initialization
 def get_cookies():
     if YOUTUBE_COOKIES:
-        # Use user-provided cookies if available
+        # Convert browser cookie string to Netscape format
+        cookie_list = []
+        cookies = YOUTUBE_COOKIES.split(';')
+        timestamp = int(time.time())
+        
+        for cookie in cookies:
+            if '=' in cookie:
+                name, value = cookie.strip().split('=', 1)
+                cookie_list.append(
+                    f".youtube.com\tTRUE\t/\tFALSE\t{timestamp + 63072000}\t{name}\t{value}"
+                )
+        
         with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt') as f:
-            f.write(YOUTUBE_COOKIES)
+            f.write("# Netscape HTTP Cookie File\n")
+            f.write("# https://curl.haxx.se/rfc/cookie_spec.html\n")
+            f.write("# This is a generated file!  Do not edit.\n\n")
+            for cookie in cookie_list:
+                f.write(cookie + "\n")
             return f.name
-            
+
     # Fallback to generated cookies
     timestamp = int(time.time())
     cookie_data = [
@@ -177,3 +192,31 @@ async def get_audio_url(video_id: str):
 # if __name__ == "__main__":
 #     import uvicorn
 #     uvicorn.run(app, host="0.0.0.0", port=8000)
+
+
+async def extract_video_info(video_id: str):
+    video_url = f"https://www.youtube.com/watch?v={video_id}"
+    ydl_opts = {
+        'format': 'bestaudio/best',
+        'quiet': True,
+        'no_warnings': True,
+        'extract_audio': True,
+        'cookiefile': get_cookies(),
+        'nocheckcertificate': True,
+        'geo_bypass': True,
+        'geo_bypass_country': 'US',
+        'http_headers': {
+            'User-Agent': get_random_user_agent(),
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.5',
+            'Accept-Encoding': 'gzip, deflate',
+            'DNT': '1',
+        }
+    }
+    
+    try:
+        with ytdl.YoutubeDL(ydl_opts) as ydl:
+            return ydl.extract_info(video_url, download=False)
+    except Exception as e:
+        print(f"YT-DLP extraction failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
